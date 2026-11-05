@@ -59,7 +59,7 @@ jobs:
         run: |
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$REGISTRY_USER" --password-stdin
           docker buildx create --use
-          docker buildx build --platform linux/amd64,linux/arm64 --tag "ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_REF_NAME}" --push .
+          docker buildx build --platform linux/amd64,linux/arm64 --build-arg "RUNNER_VERSION=${GITHUB_REF_NAME}" --tag "ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_REF_NAME}" --push .
         env:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REGISTRY_USER: ${{ github.actor }}
