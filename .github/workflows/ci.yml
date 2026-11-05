@@ -26,6 +26,10 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
       - run: npm ci --ignore-scripts
       - run: npm audit --audit-level=high
       - run: npm test
@@ -35,6 +39,15 @@ jobs:
         run: node --test test/action.test.js
         env:
           ACTION_ENTRY: dist/index.js
+      - name: Build runner and pinned official API backend
+        id: native
+        run: node scripts/build-native.js
+      - name: Test Go runner through the actual API CLI
+        run: go test ./...
+        env:
+          TE_TEST_API_CLI_PATH: ${{ steps.native.outputs.api-cli-path }}
+      - name: Vet Go sources
+        run: go vet ./...
       - name: Start local mock API
         id: mock
         run: node test/start-mock.js
@@ -43,6 +56,8 @@ jobs:
         uses: ./
         with:
           api-token: action-ci-fake-token
+          runner-path: ${{ steps.native.outputs.runner-path }}
+          api-cli-path: ${{ steps.native.outputs.api-cli-path }}
           config-path: .smoke/healthy.json
           api-base-url: ${{ steps.mock.outputs.api-base-url }}
       - name: Blocking assertion failure
@@ -51,6 +66,8 @@ jobs:
         uses: ./
         with:
           api-token: action-ci-fake-token
+          runner-path: ${{ steps.native.outputs.runner-path }}
+          api-cli-path: ${{ steps.native.outputs.api-cli-path }}
           config-path: .smoke/blocking.json
           api-base-url: ${{ steps.mock.outputs.api-base-url }}
       - name: Non-blocking assertion failure
@@ -58,6 +75,8 @@ jobs:
         uses: ./
         with:
           api-token: action-ci-fake-token
+          runner-path: ${{ steps.native.outputs.runner-path }}
+          api-cli-path: ${{ steps.native.outputs.api-cli-path }}
           config-path: .smoke/non-blocking.json
           api-base-url: ${{ steps.mock.outputs.api-base-url }}
       - name: Incomplete measurements
@@ -66,9 +85,21 @@ jobs:
         uses: ./
         with:
           api-token: action-ci-fake-token
+          runner-path: ${{ steps.native.outputs.runner-path }}
+          api-cli-path: ${{ steps.native.outputs.api-cli-path }}
           config-path: .smoke/incomplete.json
           api-base-url: ${{ steps.mock.outputs.api-base-url }}
-      - name: Verify real CLI outcomes and reports
+      - name: Native HTTP API error
+        id: api-error
+        continue-on-error: true
+        uses: ./
+        with:
+          api-token: action-ci-fake-token
+          runner-path: ${{ steps.native.outputs.runner-path }}
+          api-cli-path: ${{ steps.native.outputs.api-cli-path }}
+          config-path: .smoke/api-error.json
+          api-base-url: ${{ steps.mock.outputs.api-base-url }}
+      - name: Verify native runner outcomes and reports
         run: node test/assert-smoke.js
         env:
           HEALTHY_REPORT: ${{ steps.healthy.outputs.json-report }}
@@ -79,6 +110,8 @@ jobs:
           NON_BLOCKING_OUTCOME: ${{ steps.non-blocking.outcome }}
           INCOMPLETE_REPORT: ${{ steps.incomplete.outputs.json-report }}
           INCOMPLETE_OUTCOME: ${{ steps.incomplete.outcome }}
+          API_ERROR_REPORT: ${{ steps.api-error.outputs.json-report }}
+          API_ERROR_OUTCOME: ${{ steps.api-error.outcome }}
       - name: Upload mock smoke reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -93,9 +126,59 @@ jobs:
             ${{ steps.non-blocking.outputs.junit-report }}
             ${{ steps.incomplete.outputs.json-report }}
             ${{ steps.incomplete.outputs.junit-report }}
+            ${{ steps.api-error.outputs.json-report }}
+            ${{ steps.api-error.outputs.junit-report }}
           if-no-files-found: warn
       - name: Stop owned mock API
         if: always()
         run: node -e "const p=Number(process.env.MOCK_PID); if(Number.isInteger(p)&&p>0){try{process.kill(p)}catch(e){if(e.code!=='ESRCH')throw e}}"
         env:
           MOCK_PID: ${{ steps.mock.outputs.mock-pid }}
+
+  container-smoke:
+    name: Container smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - run: node scripts/prepare-backend.js
+      - run: node scripts/smoke-container.js --api
+
+  snapshot:
+    name: Six-platform release snapshot
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: npm ci --ignore-scripts
+      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
+        with:
+          version: '~> v2'
+          args: release --clean --snapshot
+      - name: Verify installed archives and preserve the committed Action bundle
+        run: |
+          version=$(node -p 'JSON.parse(require("node:fs").readFileSync("build/release/metadata.json")).version')
+          node scripts/verify-release.js build/release "$version"
+          git diff --exit-code -- dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: native-release-snapshot
+          path: build/release
+          if-no-files-found: error
