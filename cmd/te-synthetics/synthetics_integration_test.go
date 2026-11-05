@@ -94,7 +94,8 @@ func TestSyntheticsHTTPWaitsForAllAgentsAndWritesReports(t *testing.T) {
 	defer server.Close()
 	reportPath := filepath.Join(t.TempDir(), "result.json")
 	junitPath := filepath.Join(t.TempDir(), "result.xml")
-	stdout, stderr, err := executeSyntheticSuite(t, server.URL, `{"version":1,"accountGroupId":"123","timeout":"30s","pollInterval":"1ms","tests":[{"name":"homepage","type":"http-server","config":{"url":"https://target.invalid","agents":[{"agentId":"6"},{"agentId":"7"}]},"thresholds":{"maxResponseTime":100}}]}`, "--json-report", reportPath, "--junit-report", junitPath)
+	// Creation and two paginated polls start five backend processes.
+	stdout, stderr, err := executeSyntheticSuite(t, server.URL, `{"version":1,"accountGroupId":"123","timeout":"90s","pollInterval":"1ms","tests":[{"name":"homepage","type":"http-server","config":{"url":"https://target.invalid","agents":[{"agentId":"6"},{"agentId":"7"}]},"thresholds":{"maxResponseTime":100}}]}`, "--json-report", reportPath, "--junit-report", junitPath)
 	if err != nil {
 		t.Fatalf("expected passing suite: %v\nstdout: %s\nstderr: %s", err, stdout, stderr)
 	}

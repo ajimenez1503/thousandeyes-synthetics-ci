@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -242,6 +243,8 @@ func TestSyntheticsReportDetailsRedactsControlSeparatedTokenAcrossOutputs(t *tes
 }
 
 func TestSyntheticsReportDetailsRetainedOnPartialTimeout(t *testing.T) {
+	resultObserved := make(chan struct{})
+	var recordResult sync.Once
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/v7/tests/http-server/instant":
@@ -253,6 +256,7 @@ func TestSyntheticsReportDetailsRetainedOnPartialTimeout(t *testing.T) {
 			syntheticJSON(t, w, http.StatusOK, map[string]any{"results": []any{
 				map[string]any{"agent": map[string]any{"agentId": "6", "agentName": "Result six"}, "roundId": 1793268000, "responseCode": 200},
 			}})
+			recordResult.Do(func() { close(resultObserved) })
 		default:
 			t.Errorf("unexpected API request: %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -260,10 +264,15 @@ func TestSyntheticsReportDetailsRetainedOnPartialTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 	reportPath := filepath.Join(t.TempDir(), "result.json")
-	payload := `{"version":1,"accountGroupId":"123","timeout":"8s","pollInterval":"1ms","tests":[{"name":"partial","type":"http-server","config":{"url":"https://target.invalid/health?secret=hidden-query","agents":[{"agentId":"6"},{"agentId":"7"}]}},{"name":"unstarted","type":"http-server","config":{"url":"https://later.invalid/ready#hidden-fragment","agents":[{"agentId":"6"}]}}]}`
+	payload := `{"version":1,"accountGroupId":"123","timeout":"30s","pollInterval":"1ms","tests":[{"name":"partial","type":"http-server","config":{"url":"https://target.invalid/health?secret=hidden-query","agents":[{"agentId":"6"},{"agentId":"7"}]}},{"name":"unstarted","type":"http-server","config":{"url":"https://later.invalid/ready#hidden-fragment","agents":[{"agentId":"6"}]}}]}`
 	_, _, err := executeSyntheticSuite(t, server.URL, payload, "--json-report", reportPath)
 	if err == nil {
 		t.Fatal("missing required agent must remain a blocking timeout")
+	}
+	select {
+	case <-resultObserved:
+	default:
+		t.Fatal("suite deadline expired before the backend returned partial measurements")
 	}
 	report, data := readSyntheticDetailsReport(t, reportPath)
 	if len(report.Tests) != 2 || len(report.Tests[0].Agents) != 2 {
