@@ -2,14 +2,22 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { installCLI } = require('./install');
+const { installRunner } = require('./install');
 const { XMLValidator, XMLParser } = require('fast-xml-parser');
 const { writeSummary } = require('./summary');
 
-const DEFAULT_VERSION = '0.0.2-next';
 const DEFAULT_API = 'https://api.thousandeyes.com';
 
 class ActionError extends Error {}
+
+function inputAlias(core, name, legacy) {
+  const value = core.getInput(name);
+  const previous = core.getInput(legacy);
+  if (value && previous && value !== previous) {
+    throw new ActionError(`${name} and its deprecated ${legacy} alias must not conflict.`);
+  }
+  return value || previous;
+}
 
 async function regularFile(filename, message) {
   try {
@@ -99,22 +107,32 @@ async function run(core) {
   const configPath = path.resolve(workspace, core.getInput('config-path') || 'thousandeyes-ci.json');
   await regularFile(configPath, 'config-path must reference an existing regular suite file.');
   const baseURL = apiBaseURL(core.getInput('api-base-url') || DEFAULT_API);
-  const version = core.getInput('cli-version') || DEFAULT_VERSION;
+  const version = inputAlias(core, 'runner-version', 'cli-version');
   const overrides = ['account-group-id', 'timeout', 'poll-interval'].map(name => [name, core.getInput(name)]);
   const root = await fs.mkdtemp(path.join(process.env.RUNNER_TEMP || os.tmpdir(), 'thousandeyes-synthetics-'));
   const jsonPath = path.join(root, 'results.json');
   const junitPath = path.join(root, 'results.xml');
   core.setOutput('json-report', jsonPath);
   core.setOutput('junit-report', junitPath);
-  let executable = core.getInput('cli-path');
+  let executable = inputAlias(core, 'runner-path', 'cli-path');
+  let apiCLIPath = core.getInput('api-cli-path');
   if (executable) {
-    if (!path.isAbsolute(executable)) throw new ActionError('cli-path must be an absolute executable path.');
-    await regularFile(executable, 'cli-path must reference an existing regular executable file.');
+    if (!path.isAbsolute(executable)) throw new ActionError('runner-path must be an absolute executable path.');
+    await regularFile(executable, 'runner-path must reference an existing regular executable file.');
   } else {
-    try { executable = await installCLI({ version, tempDirectory: root }); }
-    catch { throw new ActionError('Could not install the pinned ThousandEyes CLI release; check cli-version and release availability.'); }
+    if (!version) throw new ActionError('This preview requires runner-path or an exact published runner-version; no runner release is selected by default.');
+    try {
+      const installed = await installRunner({ version, tempDirectory: root });
+      executable = installed.runnerPath;
+      apiCLIPath ||= installed.apiCLIPath;
+    } catch { throw new ActionError('Could not install the pinned synthetic CI release; check runner-version and release availability.'); }
   }
-  const args = ['synthetics', 'run-tests', '--config', configPath, '--json-report', jsonPath, '--junit-report', junitPath, '--json'];
+  if (apiCLIPath) {
+    if (!path.isAbsolute(apiCLIPath)) throw new ActionError('api-cli-path must be an absolute executable path.');
+    await regularFile(apiCLIPath, 'api-cli-path must reference an existing regular executable file.');
+  }
+  const args = ['run-tests', '--config', configPath, '--json-report', jsonPath, '--junit-report', junitPath, '--json'];
+  if (apiCLIPath) args.push('--api-cli-path', apiCLIPath);
   for (const [name, value] of overrides) if (value) args.push(`--${name}`, value);
   const exitCode = await executeCLI(executable, args, {
     cwd: workspace,

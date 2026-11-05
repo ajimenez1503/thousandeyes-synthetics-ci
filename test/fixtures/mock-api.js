@@ -38,6 +38,10 @@ const server = http.createServer(async (request, response) => {
       if (!Array.isArray(body.agents) || body.agents.length === 0) throw new Error('Agents required');
       const target = body.url || body.server;
       if (typeof target !== 'string' || !target.includes('.invalid')) throw new Error('Only invalid fixture targets allowed');
+      if (target.includes('api-error.invalid')) {
+        send(response, 401, { detail: 'private-api-error-body action-ci-fake-token' });
+        return;
+      }
       const testId = String(++nextId);
       const layer = type === 'agent-to-server' ? 'network' : 'http-server';
       const record = { testId, type, layer, target, agents: body.agents };
@@ -59,7 +63,12 @@ const server = http.createServer(async (request, response) => {
       send(response, 404, { title: 'Unknown fixture test' });
       return;
     }
-    const results = record.target.includes('incomplete.invalid') ? [] : record.agents.map(({ agentId }) => ({
+    // A partial HTTP row proves polling happened without satisfying the timing
+    // thresholds or the second agent's completeness requirement.
+    const results = record.target.includes('incomplete.invalid') ? [{
+      agent: { agentId: '6', agentName: 'Result agent 6' }, roundId: 1700000000,
+      responseCode: 200
+    }] : record.agents.map(({ agentId }) => ({
       agent: { agentId, ...(agentId === '6' ? { agentName: 'Result agent 6' } : {}) }, roundId: 1700000000,
       ...(record.type === 'http-server'
         ? { responseCode: record.target.includes('failure.invalid') ? 503 : 200, responseTime: 10, totalTime: 20 }

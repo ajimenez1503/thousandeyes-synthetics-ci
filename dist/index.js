@@ -328,14 +328,22 @@ const fs = __nccwpck_require__(1455);
 const os = __nccwpck_require__(8161);
 const path = __nccwpck_require__(6760);
 const { spawn } = __nccwpck_require__(1421);
-const { installCLI } = __nccwpck_require__(4515);
+const { installRunner } = __nccwpck_require__(4515);
 const { XMLValidator, XMLParser } = __nccwpck_require__(591);
 const { writeSummary } = __nccwpck_require__(940);
 
-const DEFAULT_VERSION = '0.0.2-next';
 const DEFAULT_API = 'https://api.thousandeyes.com';
 
 class ActionError extends Error {}
+
+function inputAlias(core, name, legacy) {
+  const value = core.getInput(name);
+  const previous = core.getInput(legacy);
+  if (value && previous && value !== previous) {
+    throw new ActionError(`${name} and its deprecated ${legacy} alias must not conflict.`);
+  }
+  return value || previous;
+}
 
 async function regularFile(filename, message) {
   try {
@@ -425,22 +433,32 @@ async function run(core) {
   const configPath = path.resolve(workspace, core.getInput('config-path') || 'thousandeyes-ci.json');
   await regularFile(configPath, 'config-path must reference an existing regular suite file.');
   const baseURL = apiBaseURL(core.getInput('api-base-url') || DEFAULT_API);
-  const version = core.getInput('cli-version') || DEFAULT_VERSION;
+  const version = inputAlias(core, 'runner-version', 'cli-version');
   const overrides = ['account-group-id', 'timeout', 'poll-interval'].map(name => [name, core.getInput(name)]);
   const root = await fs.mkdtemp(path.join(process.env.RUNNER_TEMP || os.tmpdir(), 'thousandeyes-synthetics-'));
   const jsonPath = path.join(root, 'results.json');
   const junitPath = path.join(root, 'results.xml');
   core.setOutput('json-report', jsonPath);
   core.setOutput('junit-report', junitPath);
-  let executable = core.getInput('cli-path');
+  let executable = inputAlias(core, 'runner-path', 'cli-path');
+  let apiCLIPath = core.getInput('api-cli-path');
   if (executable) {
-    if (!path.isAbsolute(executable)) throw new ActionError('cli-path must be an absolute executable path.');
-    await regularFile(executable, 'cli-path must reference an existing regular executable file.');
+    if (!path.isAbsolute(executable)) throw new ActionError('runner-path must be an absolute executable path.');
+    await regularFile(executable, 'runner-path must reference an existing regular executable file.');
   } else {
-    try { executable = await installCLI({ version, tempDirectory: root }); }
-    catch { throw new ActionError('Could not install the pinned ThousandEyes CLI release; check cli-version and release availability.'); }
+    if (!version) throw new ActionError('This preview requires runner-path or an exact published runner-version; no runner release is selected by default.');
+    try {
+      const installed = await installRunner({ version, tempDirectory: root });
+      executable = installed.runnerPath;
+      apiCLIPath ||= installed.apiCLIPath;
+    } catch { throw new ActionError('Could not install the pinned synthetic CI release; check runner-version and release availability.'); }
   }
-  const args = ['synthetics', 'run-tests', '--config', configPath, '--json-report', jsonPath, '--junit-report', junitPath, '--json'];
+  if (apiCLIPath) {
+    if (!path.isAbsolute(apiCLIPath)) throw new ActionError('api-cli-path must be an absolute executable path.');
+    await regularFile(apiCLIPath, 'api-cli-path must reference an existing regular executable file.');
+  }
+  const args = ['run-tests', '--config', configPath, '--json-report', jsonPath, '--junit-report', junitPath, '--json'];
+  if (apiCLIPath) args.push('--api-cli-path', apiCLIPath);
   for (const [name, value] of overrides) if (value) args.push(`--${name}`, value);
   const exitCode = await executeCLI(executable, args, {
     cwd: workspace,
@@ -479,12 +497,7 @@ const { createReadStream } = __nccwpck_require__(3024);
 const path = __nccwpck_require__(6760);
 const crypto = __nccwpck_require__(7598);
 
-const REPOSITORY = 'ajimenez1503/thousandeyes-cli';
-// Pin reviewed release bytes even if their GitHub assets change.
-const PINNED_MANIFEST_DIGESTS = Object.freeze({
-  '0.0.1-next': 'f1ab5e8c2625f5f71e3d8682562464c4a7637face0a87afeb6ad5f4c900c0c15',
-  '0.0.2-next': '10226378a82cf3f2febe26969cb751d67465e4fe3c79677cf4468f2f437d1d82',
-});
+const REPOSITORY = 'ajimenez1503/thousandeyes-synthetics-ci';
 const VERSION_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 const PLATFORMS = { linux: 'Linux', darwin: 'Darwin', win32: 'Windows' };
 const ARCHITECTURES = { x64: 'x86_64', arm64: 'arm64' };
@@ -501,9 +514,10 @@ function releaseAsset(version, platform = process.platform, arch = process.arch)
   }
   const format = platform === 'win32' ? 'zip' : 'tar.gz';
   return {
-    archiveName: `thousandeyes_${version}_${PLATFORMS[platform]}_${ARCHITECTURES[arch]}.${format}`,
-    checksumsName: `thousandeyes_${version}_checksums.txt`,
-    binaryName: platform === 'win32' ? 'thousandeyes.exe' : 'thousandeyes',
+    archiveName: `te-synthetics_${version}_${PLATFORMS[platform]}_${ARCHITECTURES[arch]}.${format}`,
+    checksumsName: `te-synthetics_${version}_checksums.txt`,
+    binaryName: platform === 'win32' ? 'te-synthetics.exe' : 'te-synthetics',
+    backendName: platform === 'win32' ? 'thousandeyes.exe' : 'thousandeyes',
     format,
   };
 }
@@ -539,7 +553,7 @@ async function extractAsset(archive, destination, format) {
     : toolCache.extractTar(archive, destination);
 }
 
-async function installCLI({
+async function installRunner({
   version,
   tempDirectory,
   platform = process.platform,
@@ -555,7 +569,7 @@ async function installCLI({
   try {
     const root = path.resolve(tempDirectory);
     await fs.mkdir(root, { recursive: true });
-    installationDirectory = await fs.mkdtemp(path.join(root, 'thousandeyes-cli-'));
+    installationDirectory = await fs.mkdtemp(path.join(root, 'te-synthetics-'));
     const baseURL = `https://github.com/${REPOSITORY}/releases/download/${version}`;
     const checksums = path.join(installationDirectory, asset.checksumsName);
     const archive = path.join(installationDirectory, asset.archiveName);
@@ -565,10 +579,6 @@ async function installCLI({
       throw new InstallError('Unable to download the pinned CLI release checksum manifest');
     }
     const manifest = await fs.readFile(checksums);
-    const pinnedDigest = PINNED_MANIFEST_DIGESTS[version];
-    if (pinnedDigest && crypto.createHash('sha256').update(manifest).digest('hex') !== pinnedDigest) {
-      throw new InstallError('Pinned CLI release manifest checksum did not match');
-    }
     const expected = checksumForAsset(manifest.toString('utf8'), asset.archiveName);
     try {
       await download(`${baseURL}/${asset.archiveName}`, archive);
@@ -590,18 +600,23 @@ async function installCLI({
     } catch {
       throw new InstallError('Unable to extract the pinned CLI release archive');
     }
-    const executable = path.join(extracted, asset.binaryName);
-    let executableStat;
-    try {
-      executableStat = await fs.lstat(executable);
-    } catch {
-      throw new InstallError('CLI release archive does not contain a regular executable');
+    const allowed = new Set([asset.binaryName, asset.backendName, 'LICENSE', 'NOTICE', 'README.md', 'backend.json']);
+    for (const entry of await fs.readdir(extracted, { withFileTypes: true })) {
+      if (!allowed.has(entry.name) || !entry.isFile() || entry.isSymbolicLink()) {
+        throw new InstallError('Synthetic CI archive contains an unexpected file');
+      }
     }
-    if (!executableStat.isFile() || executableStat.isSymbolicLink()) {
-      throw new InstallError('CLI release archive does not contain a regular executable');
-    }
-    if (platform !== 'win32') await fs.chmod(executable, 0o755);
-    return executable;
+    const executable = async name => {
+      const filename = path.join(extracted, name);
+      let info;
+      try { info = await fs.lstat(filename); } catch {}
+      if (!info || !info.isFile() || info.isSymbolicLink()) {
+        throw new InstallError('Synthetic CI archive must contain regular runner and API CLI executables');
+      }
+      if (platform !== 'win32') await fs.chmod(filename, 0o755);
+      return filename;
+    };
+    return { runnerPath: await executable(asset.binaryName), apiCLIPath: await executable(asset.backendName) };
   } catch (error) {
     if (installationDirectory) await fs.rm(installationDirectory, { recursive: true, force: true }).catch(() => {});
     if (error instanceof InstallError) throw error;
@@ -609,7 +624,7 @@ async function installCLI({
   }
 }
 
-module.exports = { installCLI, releaseAsset, checksumForAsset };
+module.exports = { installRunner, releaseAsset, checksumForAsset };
 
 
 /***/ }),

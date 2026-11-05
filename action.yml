@@ -1,6 +1,6 @@
 name: ThousandEyes Synthetic CI
 author: ajimenez1503
-description: Run ThousandEyes instant synthetic tests with the shared CLI and preserve its CI outcome.
+description: Run portable ThousandEyes synthetic CI checks and preserve their reports and outcome.
 inputs:
   api-token:
     description: ThousandEyes API bearer token. Supply this from a GitHub secret.
@@ -8,11 +8,18 @@ inputs:
   config-path:
     description: Repository suite JSON file, relative to the workspace or absolute.
     default: thousandeyes-ci.json
+  runner-version:
+    description: Exact published synthetic CI release version. This preview has no default release. Floating latest is not supported.
+  runner-path:
+    description: Absolute path to a preinstalled te-synthetics runner instead of downloading it.
   cli-version:
-    description: Exact CLI release version to download. Floating latest is not supported.
-    default: 0.0.2-next
+    description: Deprecated alias for runner-version.
+    deprecationMessage: Use runner-version for the portable synthetic CI release.
   cli-path:
-    description: Optional absolute path to a preinstalled CLI executable instead of downloading it.
+    description: Deprecated alias for runner-path; the executable must be te-synthetics.
+    deprecationMessage: Use runner-path for the portable te-synthetics executable.
+  api-cli-path:
+    description: Optional absolute path to a compatible official ThousandEyes API CLI backend. Downloaded bundles include it.
   account-group-id:
     description: Optional account group override; otherwise use the suite value.
   timeout:
