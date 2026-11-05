@@ -15,7 +15,8 @@ async function main() {
   const env = { ...process.env, CGO_ENABLED: '0', GOPROXY: process.env.GOPROXY || 'https://proxy.golang.org,direct' };
   delete env.GOROOT;
   for (const [binary, cwd, mainPackage] of [['te-synthetics', root, './cmd/te-synthetics'], ['thousandeyes', source, '.']]) {
-    execFileSync('go', ['build', '-trimpath', '-o', path.join(output, binary + extension), mainPackage], { cwd, env, stdio: 'inherit' });
+    const flags = binary === 'thousandeyes' ? ['-buildvcs=false'] : [];
+    execFileSync('go', ['build', '-trimpath', ...flags, '-o', path.join(output, binary + extension), mainPackage], { cwd, env, stdio: 'inherit' });
   }
   console.log('Built the portable runner and its pinned API CLI backend in build/bin.');
   if (process.env.GITHUB_OUTPUT) {

@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -o /o
 # Prepare this pinned source with node scripts/prepare-backend.js first.
 WORKDIR /backend
 COPY build/backend-source ./
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -o /out/thousandeyes .
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -buildvcs=false -o /out/thousandeyes .
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/te-synthetics /out/thousandeyes /usr/local/bin/

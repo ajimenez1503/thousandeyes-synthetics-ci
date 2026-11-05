@@ -21,7 +21,7 @@ builds:
     dir: build/backend-source
     main: .
     env: [CGO_ENABLED=0]
-    flags: [-trimpath]
+    flags: [-trimpath, -buildvcs=false]
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
