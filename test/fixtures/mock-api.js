@@ -63,7 +63,12 @@ const server = http.createServer(async (request, response) => {
       send(response, 404, { title: 'Unknown fixture test' });
       return;
     }
-    const results = record.target.includes('incomplete.invalid') ? [] : record.agents.map(({ agentId }) => ({
+    // A partial HTTP row proves polling happened without satisfying the timing
+    // thresholds or the second agent's completeness requirement.
+    const results = record.target.includes('incomplete.invalid') ? [{
+      agent: { agentId: '6', agentName: 'Result agent 6' }, roundId: 1700000000,
+      responseCode: 200
+    }] : record.agents.map(({ agentId }) => ({
       agent: { agentId, ...(agentId === '6' ? { agentName: 'Result agent 6' } : {}) }, roundId: 1700000000,
       ...(record.type === 'http-server'
         ? { responseCode: record.target.includes('failure.invalid') ? 503 : 200, responseTime: 10, totalTime: 20 }

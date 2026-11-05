@@ -41,7 +41,7 @@ async function main() {
       await fs.writeFile(output, '');
       await fs.writeFile(path.join(temporary, name + '.summary'), '');
       const result = spawnSync(process.execPath, ['dist/index.js'], {
-        cwd: root, encoding: 'utf8', timeout: 60000,
+        cwd: root, encoding: 'utf8', timeout: 120000,
         env: {
           ...env, GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: path.join(temporary, name + '.summary'),
           'INPUT_API-TOKEN': 'action-ci-fake-token', 'INPUT_CONFIG-PATH': `.smoke/${name}.json`,

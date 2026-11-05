@@ -31,12 +31,21 @@ async function main() {
       assert.equal(test.target, target, `${name} ${test.name} target`);
       assert.deepEqual(test.agents.map((agent) => agent.agentId), ['6', '7'], `${name} retains assigned agent IDs`);
       for (const agent of test.agents) {
-        const agentName = name === 'API_ERROR' ? undefined : name !== 'INCOMPLETE' && agent.agentId === '6' ? 'Result agent 6' : `Creation agent ${agent.agentId}`;
+        const agentName = name === 'API_ERROR' ? undefined : agent.agentId === '6' ? 'Result agent 6' : `Creation agent ${agent.agentId}`;
         assert.equal(agent.agentName, agentName, `${name} ${test.name} agent ${agent.agentId} name`);
         expectedCases.set(`${test.testId || ''}/${agent.agentId}`, { test, agent });
       }
     }
     if (name === 'NON_BLOCKING') assert.equal(report.tests[0].executionRule, 'non-blocking');
+    if (name === 'INCOMPLETE') {
+      const first = report.tests[0].agents.find(agent => agent.agentId === '6');
+      assert.equal(first.agentName, 'Result agent 6', 'the incomplete suite polled actual result metadata before timing out');
+      assert.equal(first.roundId, '1700000000');
+      assert.equal(first.metrics.responseCode, 200);
+      assert.equal(first.metrics.responseTime, undefined, 'missing timing remains unavailable');
+      assert.equal(first.metrics.totalTime, undefined, 'missing total time remains unavailable');
+      assert.ok(report.tests[0].agents.every(agent => agent.status === 'timed-out'));
+    }
     if (name === 'API_ERROR') {
       assert.match(report.tests[0].message, /HTTP 401/);
       assert.ok(!JSON.stringify(report).includes('private-api-error-body'));
