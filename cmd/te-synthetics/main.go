@@ -47,13 +47,15 @@ func newRootCommand() *cobra.Command {
 			if command.Flags().Changed("poll-interval") && pollInterval <= 0 {
 				return errors.New("--poll-interval must be positive")
 			}
-			suite, err := synthetics.LoadConfig(configPath)
+			suite, err := synthetics.LoadConfigContext(command.Context(), configPath)
 			if err != nil {
 				return err
 			}
-			if err := validateReportPaths(configPath, jsonPath, junitPath); err != nil {
+			destinations, err := validateReportPaths(configPath, jsonPath, junitPath)
+			if err != nil {
 				return err
 			}
+			jsonPath, junitPath = destinations[0], destinations[1]
 			report, runErr := synthetics.Run(command.Context(), suite, synthetics.Options{
 				BaseURL: os.Getenv("TE_BASE_URL"), Token: os.Getenv("TE_TOKEN"), APICLIPath: apiCLIPath,
 				AccountGroupID: accountGroupID, Timeout: timeout, PollInterval: pollInterval,

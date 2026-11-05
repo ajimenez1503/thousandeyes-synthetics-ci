@@ -14,38 +14,42 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-func validateReportPaths(configPath string, reportPaths ...string) error {
+// validateReportPaths fixes each report destination before tests can run or
+// another process can retarget a parent alias. Writers use these entries.
+func validateReportPaths(configPath string, reportPaths ...string) ([]string, error) {
 	configEntry, err := reportEntryPath(configPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	configTarget, err := filepath.EvalSymlinks(configEntry)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// Reading follows a final configuration symlink; writing atomically replaces
 	// a final report symlink. Protect both the configuration entry and its target.
 	seen := []string{configEntry, configTarget}
-	for _, path := range reportPaths {
+	resolved := make([]string, len(reportPaths))
+	for index, path := range reportPaths {
 		if path == "" {
 			continue
 		}
 		entry, err := reportEntryPath(path)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, previous := range seen {
 			same, err := sameReportEntry(previous, entry)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if same {
-				return errors.New("configuration and report files must use different paths")
+				return nil, errors.New("configuration and report files must use different paths")
 			}
 		}
+		resolved[index] = entry
 		seen = append(seen, entry)
 	}
-	return nil
+	return resolved, nil
 }
 
 func sameReportEntry(left, right string) (bool, error) {
@@ -102,11 +106,9 @@ func reportEntryPath(path string) (string, error) {
 }
 
 func writeReportFile(path string, write func(io.Writer) error) error {
-	entry, err := reportEntryPath(path)
-	if err != nil {
-		return fmt.Errorf("resolve report %q: %w", path, err)
-	}
-	file, err := os.CreateTemp(filepath.Dir(entry), ".thousandeyes-report-*")
+	// path is the canonical entry validated before execution. Resolving a
+	// caller's original alias here could redirect the write into the suite file.
+	file, err := os.CreateTemp(filepath.Dir(path), ".thousandeyes-report-*")
 	if err != nil {
 		return fmt.Errorf("create report %q: %w", path, err)
 	}
@@ -119,7 +121,7 @@ func writeReportFile(path string, write func(io.Writer) error) error {
 	if err := file.Close(); err != nil {
 		return fmt.Errorf("close report %q: %w", path, err)
 	}
-	if err := os.Rename(temp, entry); err != nil {
+	if err := os.Rename(temp, path); err != nil {
 		return fmt.Errorf("save report %q: %w", path, err)
 	}
 	return nil

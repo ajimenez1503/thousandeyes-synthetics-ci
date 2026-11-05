@@ -5,6 +5,7 @@ package synthetics
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -92,14 +93,13 @@ func (r Report) Failed() bool {
 }
 
 func LoadConfig(path string) (Config, error) {
-	file, err := os.Open(path)
+	return LoadConfigContext(context.Background(), path)
+}
+
+func LoadConfigContext(ctx context.Context, path string) (Config, error) {
+	data, err := readConfigFileContext(ctx, path)
 	if err != nil {
-		return Config{}, fmt.Errorf("open synthetic configuration: %w", err)
-	}
-	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, (4<<20)+1))
-	if err != nil {
-		return Config{}, fmt.Errorf("read synthetic configuration: %w", err)
+		return Config{}, err
 	}
 	if len(data) > 4<<20 {
 		return Config{}, fmt.Errorf("synthetic configuration exceeded size limit")
@@ -116,7 +116,51 @@ func LoadConfig(path string) (Config, error) {
 	if err := config.validate(); err != nil {
 		return Config{}, err
 	}
+	if err := ctx.Err(); err != nil {
+		return Config{}, err
+	}
 	return config, nil
+}
+
+func readConfigFileContext(ctx context.Context, path string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	type result struct {
+		data []byte
+		err  error
+	}
+	finished := make(chan result, 1)
+	// A pipe may block in Open before any read begins. Keep both operations
+	// behind the context boundary, and close a file that opens after cancellation.
+	go func() {
+		file, err := os.Open(path)
+		if err != nil {
+			finished <- result{err: fmt.Errorf("open synthetic configuration: %w", err)}
+			return
+		}
+		defer file.Close()
+		if err := ctx.Err(); err != nil {
+			finished <- result{err: err}
+			return
+		}
+		stopClosing := context.AfterFunc(ctx, func() { _ = file.Close() })
+		defer stopClosing()
+		data, err := io.ReadAll(io.LimitReader(file, (4<<20)+1))
+		if err != nil {
+			err = fmt.Errorf("read synthetic configuration: %w", err)
+		}
+		finished <- result{data, err}
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case outcome := <-finished:
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		return outcome.data, outcome.err
+	}
 }
 
 func (c Config) validate() error {

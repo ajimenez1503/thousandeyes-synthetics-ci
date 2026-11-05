@@ -40,6 +40,10 @@ func TestWriteReportFileUsesResolvedParent(t *testing.T) {
 			// Keep the symlink followed by ".." intact: its filesystem parent
 			// is actual, whereas lexical cleaning would select logical.
 			path := alias + string(filepath.Separator) + ".." + string(filepath.Separator) + "report.json"
+			path, err = reportEntryPath(path)
+			if err != nil {
+				t.Fatal(err)
+			}
 			writeFailure := errors.New("intentional report writer failure")
 			called := false
 			err = writeReportFile(path, func(w io.Writer) error {
