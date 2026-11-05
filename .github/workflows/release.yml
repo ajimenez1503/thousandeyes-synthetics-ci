@@ -1,0 +1,65 @@
+name: Release
+on:
+  push:
+    tags: ['[0-9]*.[0-9]*.[0-9]*']
+permissions:
+  contents: write
+  packages: write
+jobs:
+  release:
+    name: Publish native bundles and container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Validate exact release and preview status
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const version = process.env.GITHUB_REF_NAME;
+          if (!/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(version)) throw new Error('An exact semantic release tag is required.');
+          const backend = JSON.parse(fs.readFileSync('backend.json'));
+          if (backend.preview && !version.includes('-')) throw new Error('The unreleased API backend requires an explicit prerelease tag.');
+          if (!/^[a-f0-9]{40}$/.test(backend.sourceCommit || '')) throw new Error('Pin the published API backend source commit before releasing.');
+          NODE
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run check:dist
+      - name: Build and test the pinned native distribution
+        id: native
+        run: node scripts/build-native.js
+      - run: go test ./...
+        env:
+          TE_TEST_API_CLI_PATH: ${{ steps.native.outputs.api-cli-path }}
+      - run: node scripts/smoke-container.js --api
+      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
+        with:
+          version: '~> v2'
+          args: release --clean --skip=publish
+      - name: Verify native bundles before publication
+        run: node scripts/verify-release.js build/release "$GITHUB_REF_NAME"
+      - name: Publish release assets
+        run: |
+          gh release create "$GITHUB_REF_NAME" build/release/*.tar.gz build/release/*.zip build/release/*_checksums.txt \
+            --verify-tag --generate-notes --prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the container for both Linux architectures
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$REGISTRY_USER" --password-stdin
+          docker buildx create --use
+          docker buildx build --platform linux/amd64,linux/arm64 --tag "ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_REF_NAME}" --push .
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ github.actor }}
