@@ -46,11 +46,12 @@ async function main() {
     }],
     blocking: [http('blocking-failure', 'failure.invalid')],
     'non-blocking': [http('optional-failure', 'failure.invalid', 'non-blocking')],
-    incomplete: [http('missing-agent-measurements', 'incomplete.invalid')]
+    incomplete: [http('missing-agent-measurements', 'incomplete.invalid')],
+    'api-error': [http('native-api-error', 'api-error.invalid')]
   };
   for (const [name, tests] of Object.entries(suites)) {
     await fsp.writeFile(path.join(smoke, `${name}.json`), JSON.stringify({
-      version: 1, accountGroupId: '123456', timeout: name === 'incomplete' ? '2s' : '10s', pollInterval: '100ms', tests
+      version: 1, accountGroupId: '123456', timeout: name === 'incomplete' ? '5s' : '30s', pollInterval: '100ms', tests
     }, null, 2));
   }
   if (process.env.GITHUB_OUTPUT) {

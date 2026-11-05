@@ -1,0 +1,42 @@
+version: 2
+project_name: te-synthetics
+dist: build/release
+
+before:
+  hooks:
+    - node scripts/prepare-backend.js
+
+builds:
+  - id: runner
+    binary: te-synthetics
+    main: ./cmd/te-synthetics
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+  - id: api-cli
+    binary: thousandeyes
+    dir: build/backend-source
+    main: .
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - ids: [runner, api-cli]
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ title .Os }}_{{ if eq .Arch \"amd64\" }}x86_64{{ else }}{{ .Arch }}{{ end }}"
+    files: [LICENSE, NOTICE, README.md, backend.json]
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc

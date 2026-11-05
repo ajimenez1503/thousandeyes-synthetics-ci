@@ -38,6 +38,10 @@ const server = http.createServer(async (request, response) => {
       if (!Array.isArray(body.agents) || body.agents.length === 0) throw new Error('Agents required');
       const target = body.url || body.server;
       if (typeof target !== 'string' || !target.includes('.invalid')) throw new Error('Only invalid fixture targets allowed');
+      if (target.includes('api-error.invalid')) {
+        send(response, 401, { detail: 'private-api-error-body action-ci-fake-token' });
+        return;
+      }
       const testId = String(++nextId);
       const layer = type === 'agent-to-server' ? 'network' : 'http-server';
       const record = { testId, type, layer, target, agents: body.agents };

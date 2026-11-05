@@ -1,0 +1,23 @@
+pipeline {
+  agent any
+  options { timeout(time: 10, unit: 'MINUTES') }
+  stages {
+    stage('ThousandEyes validation') {
+      steps {
+        // Install the two-binary bundle on this worker before running the job.
+        withCredentials([string(credentialsId: 'thousandeyes-token', variable: 'TE_TOKEN')]) {
+          sh '''
+            set +x
+            te-synthetics run-tests --config thousandeyes-ci.json \
+              --json-report results.json --junit-report results.xml
+          '''
+        }
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'results.json,results.xml', allowEmptyArchive: true
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+'use strict';
+
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const { prepareBackend } = require('./prepare-backend');
+
+async function main() {
+  const root = path.resolve(__dirname, '..');
+  const source = await prepareBackend();
+  const output = path.join(root, 'build/bin');
+  await fs.mkdir(output, { recursive: true });
+  const platform = process.env.GOOS || (process.platform === 'win32' ? 'windows' : process.platform);
+  const extension = platform === 'windows' ? '.exe' : '';
+  const env = { ...process.env, CGO_ENABLED: '0', GOPROXY: process.env.GOPROXY || 'https://proxy.golang.org,direct' };
+  delete env.GOROOT;
+  for (const [binary, cwd, mainPackage] of [['te-synthetics', root, './cmd/te-synthetics'], ['thousandeyes', source, '.']]) {
+    execFileSync('go', ['build', '-trimpath', '-o', path.join(output, binary + extension), mainPackage], { cwd, env, stdio: 'inherit' });
+  }
+  console.log('Built the portable runner and its pinned API CLI backend in build/bin.');
+  if (process.env.GITHUB_OUTPUT) {
+    await fs.appendFile(process.env.GITHUB_OUTPUT, `runner-path=${path.join(output, 'te-synthetics' + extension)}\napi-cli-path=${path.join(output, 'thousandeyes' + extension)}\n`);
+  }
+}
+
+main().catch(() => { console.error('Could not build the native synthetic CI distribution.'); process.exitCode = 1; });

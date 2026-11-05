@@ -1,5 +1,5 @@
 {
-  "name": "thousandeyes-synthetics-ci-github-action",
+  "name": "thousandeyes-synthetics-ci",
   "version": "0.1.0",
   "private": true,
   "description": "Thin GitHub Action for ThousandEyes synthetic CI tests",
@@ -11,7 +11,8 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "build": "ncc build src/index.js -o dist --license licenses.txt",
-    "check:dist": "npm run build && git diff --exit-code -- dist"
+    "check:dist": "npm run build && git diff --exit-code -- dist",
+    "smoke:native": "node test/smoke-native.js"
   },
   "dependencies": {
     "@actions/core": "3.0.1",

@@ -1,0 +1,8 @@
+.git
+.idea
+node_modules
+dist
+.smoke
+build/*
+!build/backend-source/
+*.log

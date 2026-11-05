@@ -1,0 +1,18 @@
+# Install the two-binary bundle on a Linux shell runner tagged te-synthetics.
+# Store TE_TOKEN as a masked/protected CI variable. Copy the suite to repo root.
+stages: [validate]
+
+thousandeyes-validation:
+  stage: validate
+  tags: [te-synthetics]
+  timeout: 10m
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+  script:
+    - te-synthetics run-tests --config thousandeyes-ci.json --json-report results.json --junit-report results.xml
+  artifacts:
+    when: always
+    paths: [results.json, results.xml]
+    expire_in: 7 days
+    # No independent JUnit gate: non-blocking assertion failures remain failures
+    # in XML while the runner preserves executionRule semantics.

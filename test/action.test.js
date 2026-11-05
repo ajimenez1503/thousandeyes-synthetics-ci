@@ -38,7 +38,7 @@ async function fixture(t) {
   const runnerTemp = path.join(dir, 'runner temp');
   await fs.mkdir(workspace);
   await fs.mkdir(runnerTemp);
-  await fs.copyFile(path.join(__dirname, 'fixtures/native-cli.js'), path.join(workspace, 'synthetics'));
+  await fs.copyFile(path.join(__dirname, 'fixtures/native-cli.js'), path.join(workspace, 'run-tests'));
   const configName = 'suite with spaces ; $(echo injected).json';
   const configPath = path.join(workspace, configName);
   await fs.writeFile(configPath, '{"version":1,"tests":[]}');
@@ -62,7 +62,7 @@ async function fixture(t) {
         GITHUB_STEP_SUMMARY: summaryPath,
         'INPUT_API-TOKEN': fakeToken,
         'INPUT_CONFIG-PATH': configName,
-        'INPUT_CLI-PATH': process.execPath,
+        'INPUT_RUNNER-PATH': process.execPath,
         FIXTURE_CAPTURE_PATH: capturePath,
         ...overrides
       });
@@ -125,14 +125,15 @@ test('entrypoint executes the CLI safely and exposes durable report paths and te
     'INPUT_POLL-INTERVAL': '3s', 'INPUT_API-BASE-URL': 'https://api.stg.thousandeyes.com'
   });
   assert.equal(result.status, 0, result.visibleLog);
-  assert.equal(result.capture.script, 'synthetics');
+  assert.equal(result.capture.script, 'run-tests');
   // Windows may report an 8.3 path while the parent uses the long path.
   assert.equal(await fs.realpath(result.capture.cwd), await fs.realpath(f.workspace));
   assert.equal(result.capture.token, fakeToken);
   assert.equal(result.capture.apiBaseURL, 'https://api.stg.thousandeyes.com');
   assert.ok(!result.capture.args.includes(fakeToken));
   const value = (flag) => result.capture.args[result.capture.args.indexOf(flag) + 1];
-  assert.equal(result.capture.args[0], 'run-tests');
+  assert.equal(result.capture.args[0], '--config');
+  assert.ok(!result.capture.args.includes('synthetics'));
   assert.equal(value('--config'), f.configPath);
   assert.equal(value('--account-group-id'), '87757');
   assert.equal(value('--timeout'), '2m');
@@ -551,7 +552,12 @@ test('each invocation gets unique report paths and the API base ignores ambient 
 for (const [name, override] of [
   ['missing API token', { 'INPUT_API-TOKEN': '' }],
   ['missing suite', { 'INPUT_CONFIG-PATH': 'does-not-exist.json' }],
-  ['missing executable', { 'INPUT_CLI-PATH': path.join(os.tmpdir(), 'te-does-not-exist-41505') }],
+  ['missing executable', { 'INPUT_RUNNER-PATH': path.join(os.tmpdir(), 'te-does-not-exist-41505') }],
+  ['no preview installation selected', { 'INPUT_RUNNER-PATH': '' }],
+  ['conflicting executable aliases', { 'INPUT_CLI-PATH': path.join(os.tmpdir(), 'different-runner') }],
+  ['conflicting version aliases', { 'INPUT_RUNNER-VERSION': '1.2.3', 'INPUT_CLI-VERSION': '1.2.4' }],
+  ['relative API backend', { 'INPUT_API-CLI-PATH': 'thousandeyes' }],
+  ['missing API backend', { 'INPUT_API-CLI-PATH': path.join(os.tmpdir(), 'missing-api-cli') }],
   ['API base containing credentials', { 'INPUT_API-BASE-URL': 'https://user:password@example.invalid' }]
 ]) {
   test(`${name} fails before starting the CLI`, async (t) => {
@@ -563,6 +569,22 @@ for (const [name, override] of [
     assertNoRawChildLogs(result);
   });
 }
+
+test('deprecated runner path alias remains compatible', async (t) => {
+  const f = await fixture(t);
+  const result = await f.run({ 'INPUT_RUNNER-PATH': '', 'INPUT_CLI-PATH': process.execPath });
+  assert.equal(result.status, 0, result.visibleLog);
+  assert.equal(result.capture.script, 'run-tests');
+});
+
+test('an explicit API backend reaches the portable runner without shell expansion', async (t) => {
+  const f = await fixture(t);
+  const result = await f.run({ 'INPUT_API-CLI-PATH': process.execPath });
+  assert.equal(result.status, 0, result.visibleLog);
+  const index = result.capture.args.indexOf('--api-cli-path');
+  assert.equal(result.capture.args[index + 1], process.execPath);
+  assertNoRawChildLogs(result);
+});
 
 for (const [name, override] of [
   ['missing JSON report', { FIXTURE_NO_REPORT: '1' }],
