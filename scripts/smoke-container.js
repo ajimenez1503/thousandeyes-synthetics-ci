@@ -11,6 +11,7 @@ async function main() {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'te-container-smoke-'));
   const image = `te-synthetics:smoke-${process.pid}`;
   const container = `te-synthetics-smoke-${process.pid}`;
+  const version = '0.0.0-container-smoke';
   const docker = args => execFileSync('docker', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
   let mock;
   try {
@@ -18,8 +19,9 @@ async function main() {
     for (const test of suite.tests) test.executionRule = 'skipped';
     await fs.chmod(directory, 0o755);
     await fs.writeFile(path.join(directory, 'suite.json'), JSON.stringify(suite), { mode: 0o644 });
-    execFileSync('docker', ['build', '--tag', image, '.'], { cwd: root, stdio: 'inherit', timeout: 300000 });
+    execFileSync('docker', ['build', '--build-arg', `RUNNER_VERSION=${version}`, '--tag', image, '.'], { cwd: root, stdio: 'inherit', timeout: 300000 });
     const restrictions = network => ['--rm', '--name', container, '--network', network, '--read-only', '--user', '65532:65532', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges'];
+    assert.equal(docker(['run', ...restrictions('none'), image, '--version']).trim(), `te-synthetics version ${version}`);
     const report = JSON.parse(docker(['run', ...restrictions('none'), '--env', 'TE_TOKEN=container-smoke-fake-token', '--volume', `${directory}:/config:ro`, image, 'run-tests', '--config', '/config/suite.json', '--timeout', '5s', '--json']));
     assert.equal(report.version, 1);
     assert.match(report.runId, /^[a-f0-9]{24}$/);
@@ -29,7 +31,7 @@ async function main() {
     ]);
     assert.ok(!JSON.stringify(report).includes('container-smoke-fake-token'));
     docker(['run', ...restrictions('none'), '--entrypoint', '/usr/local/bin/thousandeyes', image, '--help']);
-    console.log('Container smoke passed: portable runner report and bundled API CLI start without networking or filesystem writes.');
+    console.log('Container smoke passed: stamped runner version, portable report, and bundled API CLI start without networking or filesystem writes.');
     if (process.argv.includes('--api')) {
       if (process.platform !== 'linux') throw new Error('The host-network container API smoke requires Linux.');
       const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('INPUT_') && !['TE_TOKEN', 'TE_BASE_URL', 'TE_API_CLI_PATH'].includes(name)));

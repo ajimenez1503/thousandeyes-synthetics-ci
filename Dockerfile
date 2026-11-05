@@ -2,12 +2,13 @@ FROM --platform=$BUILDPLATFORM golang:1.26.10 AS build
 ENV GOTOOLCHAIN=local
 ARG TARGETOS=linux
 ARG TARGETARCH
+ARG RUNNER_VERSION=dev
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -o /out/te-synthetics ./cmd/te-synthetics
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="-X main.version=${RUNNER_VERSION}" -o /out/te-synthetics ./cmd/te-synthetics
 
 # Prepare this pinned source with node scripts/prepare-backend.js first.
 WORKDIR /backend

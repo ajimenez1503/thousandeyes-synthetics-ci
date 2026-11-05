@@ -26,6 +26,8 @@ docker run --rm --read-only --cap-drop=ALL \
 
 The container entrypoint is `te-synthetics`. Both native executables are included, so no Node, shell, or writable temporary directory is required at runtime. `--json` writes a sanitized report to stdout. For report files, mount a writable output volume and pass its paths to `--json-report` and `--junit-report`.
 
+Release images stamp the release tag into `te-synthetics --version`. Local builds report `dev` unless you pass `--build-arg RUNNER_VERSION=<version>` to `docker build`.
+
 ## Argo CD and Argo Rollouts
 
 Build and publish the image to your own registry, then pin its digest in the [Argo CD PostSync Job](../examples/argocd/post-sync-job.yaml) or pass it to the [Argo Rollouts AnalysisTemplate](../examples/synthetics/argo-rollouts/analysis-template.yaml). Create a Secret named `thousandeyes-api` with a `token` key, and create the suite ConfigMap:
