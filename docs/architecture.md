@@ -14,7 +14,13 @@ GitHub Action, Jenkins, GitLab, terminal, or Argo Job
 
 The Go runner owns CI policy. Its HTTP and network adapters validate native payloads, create instant tests, wait for every configured agent in a coherent round, evaluate thresholds, and produce version 1 reports. A single deadline bounds the run. Cancellation and incomplete execution fail the gate, including for non-blocking tests.
 
-The official CLI owns generic OpenAPI routing, authentication, request serialization, HTTP transport, and machine-readable responses. The runner contains no second HTTP API client. It supplies complete native JSON on stdin using `--body-file -`, requests an `--http-response` envelope, disables redirects, and caps API response bodies at 4 MiB. It preserves status and retry headers for safe GET/rate-limit handling. Creation is never blindly retried when the server outcome is ambiguous.
+The GitHub Action installs or locates the runner, passes suite inputs, exposes report paths and counts, and writes a job summary. Jenkins, GitLab, terminals, and Argo Jobs invoke the same `te-synthetics run-tests` command directly or through its container.
+
+The suite explicitly selects test targets and Cloud or Enterprise Agents. Defining targets and vantage points remains the suite author's responsibility.
+
+## API backend contract
+
+The official CLI owns generic OpenAPI routing, authentication, request serialization, HTTP transport, and machine-readable responses. The runner calls it as a subprocess, supplying complete native JSON on stdin using `--body-file -` and requesting an `--http-response` envelope. It disables redirects and caps API response bodies at 4 MiB. The adapter preserves status and retry headers for GET retries and rate-limit handling. An ambiguous creation outcome fails execution to avoid creating duplicate instant tests.
 
 The process adapter bounds captured stdout/stderr and never prints raw child diagnostics. It passes `TE_TOKEN` and `TE_BASE_URL` through the child environment. The expected response envelope is:
 
@@ -22,20 +28,16 @@ The process adapter bounds captured stdout/stderr and never prints raw child dia
 {"statusCode":200,"headers":{},"body":{"testId":"123"}}
 ```
 
-HTTP error responses keep the envelope but exit nonzero. Process, transport, and argument failures also exit nonzero and may have no envelope. The required backend options are `--body-file`, `--http-response`, `--no-redirects`, and `--max-response-bytes`, in addition to generated API command flags. The generic upstream changes do not add synthetic suite commands, polling, thresholds, or reports.
+HTTP error responses keep the envelope but exit nonzero. Process, transport, and argument failures also exit nonzero and may have no envelope. The required backend options are `--body-file`, `--http-response`, `--no-redirects`, and `--max-response-bytes`, in addition to generated API command flags. Suite commands, polling, threshold evaluation, and reports belong to the runner.
 
 ## Source and distribution
 
 [`backend.json`](../backend.json) pins an exact commit in `thousandeyes/thousandeyes-cli`. Preparation verifies that source commit before building. `TE_API_CLI_SOURCE` is an explicit local-development override, not a release dependency. The release bundles and runtime image contain both executables, their license/notice, and backend metadata. Updating the pin requires reviewing the source and rerunning integration tests.
 
-The preview depends on an official CLI candidate, not an official released compatibility promise. Replace the pin with a reviewed upstream release commit after the generic changes are accepted. Do not silently substitute an older CLI or the proof-of-concept fork.
+The pinned official CLI source includes API capabilities that are not yet available in an official CLI release. Build that exact source until a compatible release is available. Selecting a release commit requires source review and integration testing before updating the pin.
 
-## Migration from the proof of concept
+## Integration configuration
 
-The old repository name was `thousandeyes-synthetics-ci-github-action`. GitHub repository redirects do not preserve Action `uses:` references, so workflows must use `ajimenez1503/thousandeyes-synthetics-ci` explicitly.
+Use `runner-path` in the GitHub Action to select an installed `te-synthetics` executable. Once a runner release is published, `runner-version` can select an exact native bundle from this repository. Keep both executables together when installing a bundle. Use `api-cli-path` to select a separately managed backend that supports the required API contract.
 
-The previous executable was `thousandeyes synthetics run-tests` from a personal fork. The standalone command is now `te-synthetics run-tests`. Suite version 1, JSON/JUnit reports, thresholds, and execution rules remain compatible. The official CLI remains an independently usable API tool.
-
-For the new Action, use `runner-path` during the source-build preview, or `runner-version` after a runner release exists. The deprecated `cli-path` and `cli-version` names now refer to that same runner. They cannot install the previous forked CLI format.
-
-The consolidated repository provides execution and evidence. It does not automatically infer a change's blast radius or choose optimal agents; users select targets and vantage points in the suite.
+See [suite configuration and results](configuration.md) and [platform setup](platforms.md) for the shared suite format, secret handling, report semantics, and integration examples.

@@ -20,7 +20,7 @@ spec:
       containers:
         - name: synthetics
           # Build, publish, and replace with your registry image digest.
-          image: registry.example.com/thousandeyes-synthetics-ci:preview
+          image: registry.example.com/thousandeyes-synthetics-ci@sha256:<image-digest>
           args: [run-tests, --config, /config/thousandeyes-ci.json, --timeout, 5m, --json]
           env:
             - name: TE_TOKEN

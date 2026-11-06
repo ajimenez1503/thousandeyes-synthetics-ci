@@ -1,6 +1,6 @@
 # Suite configuration and results
 
-Use `te-synthetics run-tests --config thousandeyes-ci.json` with `TE_TOKEN` in the environment. The [source-build procedure](../README.md#build-and-run-the-preview) installs the runner and compatible official CLI backend together.
+Use `te-synthetics run-tests --config thousandeyes-ci.json` with `TE_TOKEN` in the environment. The [source-build procedure](../README.md#build-from-source) installs the runner and compatible official CLI backend together.
 
 ## Configuration and evaluation
 
