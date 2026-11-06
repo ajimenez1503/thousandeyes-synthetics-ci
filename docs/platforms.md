@@ -4,7 +4,7 @@ Every example uses a version 1 suite and `TE_TOKEN` from the platform's secret s
 
 ## Jenkins and GitLab
 
-Build the native bundle as described in the [README](../README.md#build-and-run-the-preview). Install both executables together on the worker's `PATH`. Copy the example suite to the application repository as `thousandeyes-ci.json`.
+Build the native bundle as described in the [README](../README.md#build-from-source). Install both executables together on the worker's `PATH`. Copy the example suite to the application repository as `thousandeyes-ci.json`.
 
 For Jenkins, adapt the [Jenkinsfile](../examples/jenkins/Jenkinsfile) and create a secret-text credential named `thousandeyes-token`. For GitLab, copy [ci.yml](../examples/gitlab/ci.yml) to `.gitlab-ci.yml`, configure a masked/protected `TE_TOKEN`, and select an appropriately tagged Linux shell runner. The GitLab example runs only from the web UI. Protected variables require an eligible protected ref.
 
@@ -16,11 +16,11 @@ Build the pinned backend source, then the image:
 
 ```bash
 node scripts/prepare-backend.js
-docker build -t te-synthetics:preview .
+docker build -t te-synthetics:local .
 docker run --rm --read-only --cap-drop=ALL \
   --security-opt=no-new-privileges -e TE_TOKEN \
   -v "$PWD/examples/synthetics:/config:ro" \
-  te-synthetics:preview run-tests \
+  te-synthetics:local run-tests \
   --config /config/thousandeyes-ci.json --json
 ```
 

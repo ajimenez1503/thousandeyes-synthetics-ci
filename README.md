@@ -7,15 +7,15 @@ te-synthetics run-tests --config thousandeyes-ci.json \
   --json-report results.json --junit-report results.xml
 ```
 
-This repository contains the Go orchestration runner and a thin Node24 GitHub Action. The runner calls the official [`thousandeyes` CLI](https://github.com/thousandeyes/thousandeyes-cli) as its API backend. Test selection, polling, per-agent completeness, thresholds, execution rules, and reports belong here. The official CLI only needs generic API-access capabilities.
+This repository contains the Go orchestration runner and a thin Node24 GitHub Action. The runner calls the official [`thousandeyes` CLI](https://github.com/thousandeyes/thousandeyes-cli) as its API backend. The runner handles test selection, polling, per-agent completeness, thresholds, execution rules, and reports. The official CLI handles API access.
 
-This is a preview in a personal account. The backend requires generic CLI changes that are not yet in a released official binary. [`backend.json`](backend.json) identifies the exact official source commit used by builds. Build this preview from source; there is no default downloadable runner release yet. No published container is assumed by the examples.
+Build from source using the instructions below to obtain the runner and its compatible backend. [`backend.json`](backend.json) pins the official CLI source commit, which includes API-access changes that are not yet in a released official binary. The Action requires an explicit runner path or release version. Container examples use an image you build and publish.
 
 Cloud or Enterprise Agents perform the measurements. Private targets require an Enterprise Agent that can reach them. Each run creates new instant tests and consumes applicable ThousandEyes units.
 
-## Build and run the preview
+## Build from source
 
-Install Go and Node24, clone this repository, and run:
+Install the Go version declared in [`go.mod`](go.mod) and Node.js 24, clone this repository, and run:
 
 ```bash
 node scripts/build-native.js
@@ -32,13 +32,13 @@ export TE_TOKEN="<thousandeyes-bearer-token>"
   --json-report results.json --junit-report results.xml
 ```
 
-The runner resolves the backend from `--api-cli-path`, then `TE_API_CLI_PATH`, then the sibling `thousandeyes` executable, then `PATH`. An override must support the contract documented in [architecture](docs/architecture.md). An older official CLI is not compatible with this preview.
+The runner resolves the backend from `--api-cli-path`, then `TE_API_CLI_PATH`, then the sibling `thousandeyes` executable, then `PATH`. An override must support the API options and response contract documented in [architecture](docs/architecture.md).
 
 Use the [JSON Schema](schemas/thousandeyes-ci.schema.json) for completion and generation. The example already references it through `$schema`. See [suite configuration and results](docs/configuration.md) for defaults, threshold units, execution rules, and report semantics.
 
 ## GitHub Actions
 
-The preview workflow below builds the bundle before invoking the Action. It requires no published runner release. For a reproducible workflow, replace both `main` references with the same reviewed full commit SHA.
+The workflow below builds the bundle before invoking the Action. For a reproducible workflow, replace both `main` references with the same reviewed full commit SHA.
 
 ```yaml
 name: Synthetic checks
@@ -66,7 +66,7 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
-      - name: Build preview bundle
+      - name: Build native bundle
         working-directory: .te-synthetics
         run: node scripts/build-native.js
       - name: Run synthetic checks
@@ -87,7 +87,7 @@ jobs:
           if-no-files-found: warn
 ```
 
-Once an exact runner release is published, `runner-version` can install its native bundle and verify archive SHA-256 checksums against the release manifest. Floating `latest` is rejected. A release bundle contains both executables. Never point `runner-version` at the earlier forked CLI releases.
+To use a published runner release, set `runner-version` to its exact version. The Action installs the native bundle and verifies archive SHA-256 checksums against the release manifest. Floating `latest` is rejected. A release bundle contains both executables.
 
 | Input | Default | Purpose |
 | --- | --- | --- |
@@ -100,7 +100,7 @@ Once an exact runner release is published, `runner-version` can install its nati
 | `timeout`, `poll-interval` | Suite values | Positive duration overrides such as `5m` and `5s`. |
 | `api-base-url` | `https://api.thousandeyes.com` | API origin; HTTP is permitted only for loopback test servers. |
 
-`cli-version` and `cli-path` are deprecated aliases for the runner inputs. They now identify the portable runner, not the old forked API CLI. Conflicting aliases are rejected. Existing consumers pinned to earlier Action commits keep their earlier behavior.
+`cli-version` and `cli-path` are deprecated aliases for `runner-version` and `runner-path`. Conflicting aliases are rejected.
 
 The Action exposes `run-id`, `exit-code`, `json-report`, `junit-report`, and test counts (`passed`, `failed`, `non-blocking-failed`, `skipped`, `timed-out`, `errors`). Report paths are reserved before execution; files exist only if the runner produces them. Use `if: always()` for uploads.
 
@@ -135,6 +135,6 @@ On Windows, use `thousandeyes.exe` for the backend test path and set the environ
 
 Commit `dist/` with Node source changes. Release artifacts go under `build/release`, separate from the committed Action bundle. CI runs the native runner and actual pinned API CLI against a local fake API on Linux, macOS, and Windows, and validates a restricted container. These tests use fake tokens and do not create real ThousandEyes tests. Jenkins, GitLab, and Argo runtime integration requires validation in your environment.
 
-See [architecture](docs/architecture.md) for the component boundary, backend pin, and migration from the proof of concept. The thin adapter approach is inspired by the [Datadog synthetics Action](https://github.com/DataDog/synthetics-ci-github-action). No Datadog execution code is included.
+See [architecture](docs/architecture.md) for the components, backend contract, and distribution contents.
 
 Licensed under Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
