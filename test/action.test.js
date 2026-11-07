@@ -119,23 +119,26 @@ function agentCells(result) {
 }
 
 test('entrypoint executes the CLI safely and exposes durable report paths and test counts', async (t) => {
+  // Synthetic inputs for the local stub; no API requests are made.
+  const accountGroupId = '123456';
+  const fakeApiBaseURL = 'https://example.com';
   const f = await fixture(t);
   const result = await f.run({
-    'INPUT_ACCOUNT-GROUP-ID': '87757', 'INPUT_TIMEOUT': '2m',
-    'INPUT_POLL-INTERVAL': '3s', 'INPUT_API-BASE-URL': 'https://api.stg.thousandeyes.com'
+    'INPUT_ACCOUNT-GROUP-ID': accountGroupId, 'INPUT_TIMEOUT': '2m',
+    'INPUT_POLL-INTERVAL': '3s', 'INPUT_API-BASE-URL': fakeApiBaseURL
   });
   assert.equal(result.status, 0, result.visibleLog);
   assert.equal(result.capture.script, 'run-tests');
   // Windows may report an 8.3 path while the parent uses the long path.
   assert.equal(await fs.realpath(result.capture.cwd), await fs.realpath(f.workspace));
   assert.equal(result.capture.token, fakeToken);
-  assert.equal(result.capture.apiBaseURL, 'https://api.stg.thousandeyes.com');
+  assert.equal(result.capture.apiBaseURL, fakeApiBaseURL);
   assert.ok(!result.capture.args.includes(fakeToken));
   const value = (flag) => result.capture.args[result.capture.args.indexOf(flag) + 1];
   assert.equal(result.capture.args[0], '--config');
   assert.ok(!result.capture.args.includes('synthetics'));
   assert.equal(value('--config'), f.configPath);
-  assert.equal(value('--account-group-id'), '87757');
+  assert.equal(value('--account-group-id'), accountGroupId);
   assert.equal(value('--timeout'), '2m');
   assert.equal(value('--poll-interval'), '3s');
   assert.equal(result.outputs['exit-code'], '0');
