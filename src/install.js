@@ -20,7 +20,7 @@ const { createReadStream } = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-const REPOSITORY = 'ajimenez1503/thousandeyes-synthetics-ci';
+const REPOSITORY = 'antonjim-te/thousandeyes-synthetics-ci';
 const VERSION_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 const PLATFORMS = { linux: 'Linux', darwin: 'Darwin', win32: 'Windows' };
 const ARCHITECTURES = { x64: 'x86_64', arm64: 'arm64' };

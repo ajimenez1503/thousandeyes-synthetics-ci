@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ajimenez1503/thousandeyes-synthetics-ci/internal/synthetics"
+	"github.com/antonjim-te/thousandeyes-synthetics-ci/internal/synthetics"
 	"github.com/spf13/cobra"
 )
 
