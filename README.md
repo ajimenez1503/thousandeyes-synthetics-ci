@@ -9,6 +9,19 @@ te-synthetics run-tests --config thousandeyes-ci.json \
 
 This repository contains the Go orchestration runner and a thin Node24 GitHub Action. The runner calls the official [`thousandeyes` CLI](https://github.com/thousandeyes/thousandeyes-cli) as its API backend. The runner handles test selection, polling, per-agent completeness, thresholds, execution rules, and reports. The official CLI handles API access.
 
+```text
+GitHub Actions / Jenkins / GitLab / terminal / Argo
+                       |
+              te-synthetics runner
+         create -> poll -> evaluate -> report
+                       |
+            official thousandeyes CLI
+                       |
+           ThousandEyes API and agents
+```
+
+See [architecture](docs/architecture.md) for component responsibilities and the backend contract.
+
 Build from source using the instructions below to obtain the runner and its compatible backend. [`backend.json`](backend.json) pins the source commit from the official [ThousandEyes CLI 0.0.4 release](https://github.com/thousandeyes/thousandeyes-cli/releases/tag/0.0.4). The build compiles both executables from source. The Action requires an explicit runner path or runner release version. Container examples use an image you build and publish.
 
 Cloud or Enterprise Agents perform the measurements. Private targets require an Enterprise Agent that can reach them. Each run creates new instant tests and consumes applicable ThousandEyes units.
@@ -18,6 +31,8 @@ Cloud or Enterprise Agents perform the measurements. Private targets require an 
 Install the Go version declared in [`go.mod`](go.mod) and Node.js 24, clone this repository, and run:
 
 ```bash
+git clone https://github.com/antonjim-te/thousandeyes-synthetics-ci.git
+cd thousandeyes-synthetics-ci
 node scripts/build-native.js
 ```
 
@@ -55,7 +70,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          repository: ajimenez1503/thousandeyes-synthetics-ci
+          repository: antonjim-te/thousandeyes-synthetics-ci
           ref: main
           path: .te-synthetics
           persist-credentials: false
@@ -71,7 +86,7 @@ jobs:
         run: node scripts/build-native.js
       - name: Run synthetic checks
         id: synthetics
-        uses: ajimenez1503/thousandeyes-synthetics-ci@main
+        uses: antonjim-te/thousandeyes-synthetics-ci@main
         with:
           api-token: ${{ secrets.TE_TOKEN }}
           config-path: thousandeyes-ci.json
@@ -137,4 +152,14 @@ Commit `dist/` with Node source changes. Release artifacts go under `build/relea
 
 See [architecture](docs/architecture.md) for the components, backend contract, and distribution contents.
 
-Licensed under Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development prerequisites, coding conventions, tests, and pull requests.
+
+## Community and support
+
+Use [GitHub issues](https://github.com/antonjim-te/thousandeyes-synthetics-ci/issues) to report runner or Action bugs, ask usage questions, and suggest features. Check existing issues and pull requests before opening a new discussion. Remove tokens, internal hostnames, account details, and other sensitive information from examples and reports.
+
+Participation follows our [code of conduct](CODE_OF_CONDUCT.md). Report suspected vulnerabilities through the private email channel in [SECURITY.md](SECURITY.md).
+
+## License and attribution
+
+Licensed under Apache-2.0. See [LICENSE](LICENSE), [NOTICE](NOTICE), and [licensing and third-party attribution](docs/licensing.md). Bundled dependencies retain their own licenses and notices.

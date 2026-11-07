@@ -1,0 +1,8 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+# SPDX-License-Identifier: Apache-2.0
+
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/antonjim-te/thousandeyes-synthetics-ci/blob/main/SECURITY.md
+    about: Use Cisco's private security email channel. Do not disclose vulnerabilities in public issues.

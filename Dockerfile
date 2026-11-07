@@ -1,3 +1,6 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+# SPDX-License-Identifier: Apache-2.0
+
 FROM --platform=$BUILDPLATFORM golang:1.26.10 AS build
 ENV GOTOOLCHAIN=local
 ARG TARGETOS=linux
