@@ -32,9 +32,9 @@ HTTP error responses keep the envelope but exit nonzero. Process, transport, and
 
 ## Source and distribution
 
-[`backend.json`](../backend.json) pins an exact commit in `thousandeyes/thousandeyes-cli`. Preparation verifies that source commit before building. `TE_API_CLI_SOURCE` is an explicit local-development override, not a release dependency. The release bundles and runtime image contain both executables, their license/notice, and backend metadata. Updating the pin requires reviewing the source and rerunning integration tests.
+[`backend.json`](../backend.json) pins the official [ThousandEyes CLI 0.0.4 release](https://github.com/thousandeyes/thousandeyes-cli/releases/tag/0.0.4) to its source commit, `f5f5bbd3a93baf9447c6d419d5ee012246db3eff`. Preparation verifies that source commit before building the API backend. The native build compiles both the runner and the backend from source. `TE_API_CLI_SOURCE` is an explicit local-development override, not a release dependency.
 
-The pinned official CLI source includes API capabilities that are not yet available in an official CLI release. Build that exact source until a compatible release is available. Selecting a release commit requires source review and integration testing before updating the pin.
+The release bundles and runtime image contain both executables, their license/notice, and backend metadata. Updating the backend pin requires reviewing the selected release's source commit and rerunning integration tests.
 
 ## Integration configuration
 

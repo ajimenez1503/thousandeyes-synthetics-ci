@@ -18,7 +18,7 @@ async function prepareBackend() {
     throw new Error('The API backend must use the official ThousandEyes CLI repository.');
   }
   if (!override && !/^[a-f0-9]{40}$/.test(metadata.sourceCommit || '')) {
-    throw new Error('backend.json requires the exact published candidate commit before a remote build; use TE_API_CLI_SOURCE only for local development.');
+    throw new Error('backend.json requires the exact official CLI source commit before a remote build; use TE_API_CLI_SOURCE only for local development.');
   }
   await fs.rm(destination, { recursive: true, force: true });
   await fs.mkdir(destination, { recursive: true });
