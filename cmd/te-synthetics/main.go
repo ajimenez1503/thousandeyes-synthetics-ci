@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/antonjim-te/thousandeyes-synthetics-ci/internal/synthetics"
 	"github.com/spf13/cobra"
+	"github.com/thousandeyes/thousandeyes-synthetics-ci/internal/synthetics"
 )
 
 var version = "dev"

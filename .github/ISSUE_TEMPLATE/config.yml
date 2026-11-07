@@ -4,5 +4,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Report a security vulnerability
-    url: https://github.com/antonjim-te/thousandeyes-synthetics-ci/blob/main/SECURITY.md
+    url: https://github.com/thousandeyes/thousandeyes-synthetics-ci/blob/main/SECURITY.md
     about: Use Cisco's private security email channel. Do not disclose vulnerabilities in public issues.

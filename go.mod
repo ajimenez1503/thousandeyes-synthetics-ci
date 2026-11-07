@@ -1,4 +1,4 @@
-module github.com/antonjim-te/thousandeyes-synthetics-ci
+module github.com/thousandeyes/thousandeyes-synthetics-ci
 
 go 1.26.10
 

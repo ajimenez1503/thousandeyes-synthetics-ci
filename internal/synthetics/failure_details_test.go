@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/antonjim-te/thousandeyes-synthetics-ci/internal/synthetics"
+	"github.com/thousandeyes/thousandeyes-synthetics-ci/internal/synthetics"
 )
 
 func TestRunExplainsFailedChecksInEveryReport(t *testing.T) {
