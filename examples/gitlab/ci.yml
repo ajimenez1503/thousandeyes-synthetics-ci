@@ -1,3 +1,6 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+# SPDX-License-Identifier: Apache-2.0
+
 # Install the two-binary bundle on a Linux shell runner tagged te-synthetics.
 # Store TE_TOKEN as a masked/protected CI variable. Copy the suite to repo root.
 stages: [validate]
