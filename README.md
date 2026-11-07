@@ -9,7 +9,7 @@ te-synthetics run-tests --config thousandeyes-ci.json \
 
 This repository contains the Go orchestration runner and a thin Node24 GitHub Action. The runner calls the official [`thousandeyes` CLI](https://github.com/thousandeyes/thousandeyes-cli) as its API backend. The runner handles test selection, polling, per-agent completeness, thresholds, execution rules, and reports. The official CLI handles API access.
 
-Build from source using the instructions below to obtain the runner and its compatible backend. [`backend.json`](backend.json) pins the official CLI source commit, which includes API-access changes that are not yet in a released official binary. The Action requires an explicit runner path or release version. Container examples use an image you build and publish.
+Build from source using the instructions below to obtain the runner and its compatible backend. [`backend.json`](backend.json) pins the source commit from the official [ThousandEyes CLI 0.0.4 release](https://github.com/thousandeyes/thousandeyes-cli/releases/tag/0.0.4). The build compiles both executables from source. The Action requires an explicit runner path or runner release version. Container examples use an image you build and publish.
 
 Cloud or Enterprise Agents perform the measurements. Private targets require an Enterprise Agent that can reach them. Each run creates new instant tests and consumes applicable ThousandEyes units.
 
@@ -87,7 +87,7 @@ jobs:
           if-no-files-found: warn
 ```
 
-To use a published runner release, set `runner-version` to its exact version. The Action installs the native bundle and verifies archive SHA-256 checksums against the release manifest. Floating `latest` is rejected. A release bundle contains both executables.
+To use a published runner release from this repository, set `runner-version` to its exact version. The Action installs the native bundle and verifies archive SHA-256 checksums against the release manifest. Floating `latest` is rejected. A release bundle contains both executables.
 
 | Input | Default | Purpose |
 | --- | --- | --- |

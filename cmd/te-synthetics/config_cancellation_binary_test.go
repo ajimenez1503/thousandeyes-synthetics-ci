@@ -23,7 +23,7 @@ func TestConfigPipeSIGTERMStopsStandaloneBinary(t *testing.T) {
 		t.Fatalf("build standalone runner: %v\n%s", err, output)
 	}
 	for _, heldOpen := range []bool{false, true} {
-		name := "blocked open"
+		name := "startup or blocked open"
 		if heldOpen {
 			name = "blocked read"
 		}
@@ -74,9 +74,12 @@ func TestConfigPipeSIGTERMStopsStandaloneBinary(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				// Let the standalone runtime install its signal handler. Requiring
-				// the context-canceled diagnostic also rejects default signal exit.
-				time.Sleep(500 * time.Millisecond)
+				select {
+				case err := <-finished:
+					waited = true
+					t.Fatalf("runner exited before SIGTERM: error=%v stdout=%q stderr=%q", err, stdout.String(), stderr.String())
+				case <-time.After(500 * time.Millisecond):
+				}
 			}
 			if err := child.Process.Signal(syscall.SIGTERM); err != nil {
 				t.Fatal(err)
@@ -84,9 +87,21 @@ func TestConfigPipeSIGTERMStopsStandaloneBinary(t *testing.T) {
 			select {
 			case err := <-finished:
 				waited = true
-				if err == nil || !strings.Contains(stderr.String(), "context canceled") || stdout.Len() != 0 {
+				exit, ok := err.(*exec.ExitError)
+				if !ok || stdout.Len() != 0 {
 					t.Fatalf("pipe cancellation did not propagate: error=%v stdout=%q stderr=%q", err, stdout.String(), stderr.String())
 				}
+				handled := exit.ExitCode() == 1 && strings.Contains(stderr.String(), "context canceled")
+				// Before main installs its handler, SIGTERM itself is the correct
+				// termination. The context-level FIFO test separately proves blocked
+				// opening cancels. A held-open producer handshakes with the reader,
+				// so that case must always report handled cancellation.
+				status, isWaitStatus := exit.Sys().(syscall.WaitStatus)
+				startupSignal := !heldOpen && isWaitStatus && status.Signaled() && status.Signal() == syscall.SIGTERM && stderr.Len() == 0
+				if !handled && !startupSignal {
+					t.Fatalf("unexpected interruption: error=%v stdout=%q stderr=%q", err, stdout.String(), stderr.String())
+				}
+				t.Logf("interruption outcome: handled cancellation=%t, startup SIGTERM=%t", handled, startupSignal)
 			case <-time.After(3 * time.Second):
 				t.Fatal("standalone runner ignored SIGTERM while loading its configuration")
 			}

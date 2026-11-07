@@ -1,6 +1,7 @@
 {
   "repository": "thousandeyes/thousandeyes-cli",
-  "sourceCommit": "8f16ce9c10e6a4c5036b229cf143f9de771f3fd4",
+  "releaseVersion": "0.0.4",
+  "sourceCommit": "f5f5bbd3a93baf9447c6d419d5ee012246db3eff",
   "contractVersion": 1,
-  "preview": true
+  "preview": false
 }
