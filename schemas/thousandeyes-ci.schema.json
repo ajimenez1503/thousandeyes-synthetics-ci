@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/ajimenez1503/thousandeyes-synthetics-ci/main/schemas/thousandeyes-ci.schema.json",
+  "$id": "https://raw.githubusercontent.com/thousandeyes/thousandeyes-synthetics-ci/main/schemas/thousandeyes-ci.schema.json",
   "$comment": "Copyright 2026 Cisco Systems, Inc. and its affiliates. SPDX-License-Identifier: Apache-2.0",
   "title": "ThousandEyes synthetic CI suite",
   "description": "Configure HTTP and network instant tests for te-synthetics run-tests. The CLI performs final validation, including unique test names and agent IDs, UTF-8 name lengths, and positive Go durations. The ThousandEyes API validates additional native payload options.",

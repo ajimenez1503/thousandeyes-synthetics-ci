@@ -96,9 +96,9 @@ for (const [platform, arch, osName, archiveArch, extension, binaryName] of [
     if (platform !== 'win32' && process.platform !== 'win32') assert.notEqual(file.mode & 0o111, 0);
     assert.equal(h.calls.download.length, 2);
     assert.equal(h.calls.download[0].url,
-      `https://github.com/ajimenez1503/thousandeyes-synthetics-ci/releases/download/${VERSION}/te-synthetics_${VERSION}_checksums.txt`);
+      `https://github.com/thousandeyes/thousandeyes-synthetics-ci/releases/download/${VERSION}/te-synthetics_${VERSION}_checksums.txt`);
     assert.equal(h.calls.download[1].url,
-      `https://github.com/ajimenez1503/thousandeyes-synthetics-ci/releases/download/${VERSION}/te-synthetics_${VERSION}_${osName}_${archiveArch}.${extension}`);
+      `https://github.com/thousandeyes/thousandeyes-synthetics-ci/releases/download/${VERSION}/te-synthetics_${VERSION}_${osName}_${archiveArch}.${extension}`);
     assert.equal(h.calls.extract[0].format, extension);
     assert.equal(h.calls.extract.length, 1);
   });

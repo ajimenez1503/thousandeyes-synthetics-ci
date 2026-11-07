@@ -31,7 +31,7 @@ Cloud or Enterprise Agents perform the measurements. Private targets require an 
 Install the Go version declared in [`go.mod`](go.mod) and Node.js 24, clone this repository, and run:
 
 ```bash
-git clone https://github.com/antonjim-te/thousandeyes-synthetics-ci.git
+git clone https://github.com/thousandeyes/thousandeyes-synthetics-ci.git
 cd thousandeyes-synthetics-ci
 node scripts/build-native.js
 ```
@@ -70,7 +70,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          repository: antonjim-te/thousandeyes-synthetics-ci
+          repository: thousandeyes/thousandeyes-synthetics-ci
           ref: main
           path: .te-synthetics
           persist-credentials: false
@@ -86,7 +86,7 @@ jobs:
         run: node scripts/build-native.js
       - name: Run synthetic checks
         id: synthetics
-        uses: antonjim-te/thousandeyes-synthetics-ci@main
+        uses: thousandeyes/thousandeyes-synthetics-ci@main
         with:
           api-token: ${{ secrets.TE_TOKEN }}
           config-path: thousandeyes-ci.json
@@ -156,7 +156,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development prerequisites, coding con
 
 ## Community and support
 
-Use [GitHub issues](https://github.com/antonjim-te/thousandeyes-synthetics-ci/issues) to report runner or Action bugs, ask usage questions, and suggest features. Check existing issues and pull requests before opening a new discussion. Remove tokens, internal hostnames, account details, and other sensitive information from examples and reports.
+Use [GitHub issues](https://github.com/thousandeyes/thousandeyes-synthetics-ci/issues) to report runner or Action bugs, ask usage questions, and suggest features. Check existing issues and pull requests before opening a new discussion. Remove tokens, internal hostnames, account details, and other sensitive information from examples and reports.
 
 Participation follows our [code of conduct](CODE_OF_CONDUCT.md). Report suspected vulnerabilities through the private email channel in [SECURITY.md](SECURITY.md).
 

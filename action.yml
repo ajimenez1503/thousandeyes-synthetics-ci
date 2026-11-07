@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: ThousandEyes Synthetic CI
-author: ajimenez1503
+author: ThousandEyes
 description: Run portable ThousandEyes synthetic CI checks and preserve their reports and outcome.
 inputs:
   api-token:
